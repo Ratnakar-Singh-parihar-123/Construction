@@ -40,3 +40,163 @@
 .read-the-docs {
   color: #888;
 }
+
+
+
+/* Add to your global CSS file */
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-5px); }
+}
+
+@keyframes glow {
+    0%, 100% { box-shadow: 0 0 5px rgba(245, 158, 11, 0.5); }
+    50% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.8); }
+}
+
+@keyframes shimmer {
+    0% { background-position: -1000px 0; }
+    100% { background-position: 1000px 0; }
+}
+
+.custom-tractor-icon {
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+.custom-popup .leaflet-popup-content-wrapper {
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    border: 1px solid rgba(0,0,0,0.1);
+}
+
+.custom-popup .leaflet-popup-content {
+    margin: 0;
+    padding: 0;
+}
+
+.custom-popup .leaflet-popup-tip {
+    background: white;
+}
+
+/* Gradient backgrounds */
+.bg-gradient-radial {
+    background-image: radial-gradient(circle at center, var(--tw-gradient-stops));
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(to bottom, #f59e0b, #d97706);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(to bottom, #d97706, #b45309);
+}
+
+/* Leaflet control styling */
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+    background: white !important;
+    color: #4b5563 !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 8px !important;
+    margin-bottom: 8px !important;
+    width: 40px !important;
+    height: 40px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 18px !important;
+    transition: all 0.2s ease !important;
+}
+
+.leaflet-control-zoom-in:hover,
+.leaflet-control-zoom-out:hover {
+    background: #f9fafb !important;
+    color: #1f2937 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.leaflet-control-zoom-in:active,
+.leaflet-control-zoom-out:active {
+    transform: translateY(0);
+}
+
+
+/* WhatsApp Button Animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.whatsapp-button-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Pulse Animation for Online Indicator */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+.online-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Smooth Transitions */
+.whatsapp-expand-enter {
+  opacity: 0;
+  transform: scale(0.9) translateY(10px);
+}
+
+.whatsapp-expand-enter-active {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  transition: all 300ms ease-out;
+}
+
+.whatsapp-expand-exit {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.whatsapp-expand-exit-active {
+  opacity: 0;
+  transform: scale(0.9) translateY(10px);
+  transition: all 200ms ease-in;
+}
+
+/* Mobile Responsive */
+@media (max-width: 640px) {
+  .whatsapp-container {
+    bottom: 4px;
+    right: 4px;
+  }
+  
+  .whatsapp-expanded-card {
+    width: 280px;
+    right: 0;
+    bottom: 70px;
+  }
+}

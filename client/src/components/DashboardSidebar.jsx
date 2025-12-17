@@ -20,7 +20,14 @@ const DashboardSidebar = ({ isCollapsed = false }) => {
     { label: 'Dashboard', path: '/customer-dashboard', icon: 'LayoutDashboard' },
     { label: 'My Ledger', path: '/customer-ledger', icon: 'BookOpen' },
     { label: 'Transactions', path: '/customer-transactions', icon: 'Receipt' },
+    { label: 'Tractor Tracking', path: '/tractor-tracking', icon: 'MapPin' },
+    { label: 'All Customers', path: '/all-customer', icon: 'Users' },
+    { label: 'Inventory Management', path: '/all-inventory', icon: 'PackageCheck' },
     { label: 'Profile', path: '/customer-profile', icon: 'User' },
+    // { label: 'InventoryManagement', path: '/all-inventory', icon: 'Warehouse' }
+    
+
+
   ];
 
   const adminNavItems = [
