@@ -96,7 +96,7 @@ import HomePage from './pages/home-page';
 import CustomerLedger from './pages/customer-ledger';
 import AboutUs from './pages/about-us';
 import ContactUs from './pages/contact-us';
-import Auth from "./pages/auth/Auth";
+import Auth from "./pages/Auth/Auth";
 import VerifyEmail from "./pages/auth/VerifyEmail";
 import TractorTracking from "./pages/customer-dashboard/components/TractorTracking";
 import EnhancedCustomerManagement from "./pages/admin-customer-management/components/EnhancedCustomerManagement";
