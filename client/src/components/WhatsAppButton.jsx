@@ -43,11 +43,11 @@ const WhatsAppButton = () => {
   const handleWhatsAppClick = () => {
     const phone = '919876543210'; // Replace with your number
     const message = getWhatsAppMessage();
-    window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+    window.open(`https://wa.me/${phone}?text=${message}`);
   };
 
   const handleCallClick = () => {
-    window.open('tel:+919876543210', '_self');
+    window.open('tel:+919399741051', '_self');
   };
 
   const handleEmailClick = () => {

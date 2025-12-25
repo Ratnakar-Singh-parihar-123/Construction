@@ -1,57 +1,204 @@
 import React from "react";
+import PropTypes from "prop-types";
 import Icon from "./AppIcon";
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { 
+      hasError: false, 
+      error: null, 
+      errorInfo: null 
+    };
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true };
+    return { 
+      hasError: true, 
+      error 
+    };
   }
 
   componentDidCatch(error, errorInfo) {
+    // Preserve the original error boundary flag
     error.__ErrorBoundary = true;
+    
+    // Log to error reporting service
     window.__COMPONENT_ERROR__?.(error, errorInfo);
-    // console.log("Error caught by ErrorBoundary:", error, errorInfo);
+    
+    // Console logging for development
+    if (process.env.NODE_ENV === 'development') {
+      console.error("Error caught by ErrorBoundary:", error, errorInfo);
+    }
+    
+    // Update state with error information
+    this.setState({
+      errorInfo,
+      hasError: true,
+      error
+    });
+  }
+
+  handleReset = () => {
+    // Reset error state
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null
+    });
+    
+    // Call optional reset callback
+    this.props.onReset?.();
+  };
+
+  handleGoHome = () => {
+    this.props.onGoHome?.() || (window.location.href = "/");
+  };
+
+  handleReload = () => {
+    window.location.reload();
+  };
+
+  renderErrorContent() {
+    const { error, errorInfo } = this.state;
+    const { 
+      fallback: FallbackComponent, 
+      showDetails,
+      showResetButton = true,
+      showHomeButton = true,
+      showReloadButton = true
+    } = this.props;
+
+    // Custom fallback component
+    if (FallbackComponent) {
+      return <FallbackComponent 
+        error={error} 
+        errorInfo={errorInfo} 
+        resetError={this.handleReset}
+      />;
+    }
+
+    // Default error UI
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 p-4">
+        <div className="text-center p-8 max-w-md w-full bg-white rounded-lg shadow-sm border border-neutral-200">
+          <div className="flex justify-center items-center mb-4">
+            <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="32" 
+                height="32" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="#DC2626" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </div>
+          </div>
+          
+          <div className="flex flex-col gap-3 text-center mb-6">
+            <h1 className="text-2xl font-semibold text-neutral-800">
+              {this.props.errorTitle || "Something went wrong"}
+            </h1>
+            <p className="text-neutral-600 text-base">
+              {this.props.errorMessage || "We encountered an unexpected error while processing your request."}
+            </p>
+            
+            {/* Show error details in development */}
+            {process.env.NODE_ENV === 'development' && showDetails && error && (
+              <div className="mt-4 text-left">
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-neutral-700 font-medium mb-2">
+                    Error Details
+                  </summary>
+                  <pre className="mt-2 p-3 bg-neutral-50 rounded text-xs overflow-auto max-h-40">
+                    {error.toString()}
+                    {errorInfo?.componentStack && `\n\n${errorInfo.componentStack}`}
+                  </pre>
+                </details>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex flex-wrap justify-center items-center gap-3">
+            {showResetButton && (
+              <button
+                onClick={this.handleReset}
+                className="bg-neutral-800 hover:bg-neutral-900 text-white font-medium py-2.5 px-5 rounded-lg flex items-center gap-2 transition-colors duration-200 shadow-sm"
+              >
+                <Icon name="Refresh" size={18} color="#fff" />
+                Try Again
+              </button>
+            )}
+            
+            {showReloadButton && (
+              <button
+                onClick={this.handleReload}
+                className="bg-white hover:bg-neutral-50 text-neutral-800 font-medium py-2.5 px-5 rounded-lg border border-neutral-300 flex items-center gap-2 transition-colors duration-200 shadow-sm"
+              >
+                <Icon name="Reload" size={18} />
+                Reload Page
+              </button>
+            )}
+            
+            {showHomeButton && (
+              <button
+                onClick={this.handleGoHome}
+                className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2.5 px-5 rounded-lg flex items-center gap-2 transition-colors duration-200 shadow-sm"
+              >
+                <Icon name="ArrowLeft" size={18} color="#fff" />
+                Back to Home
+              </button>
+            )}
+          </div>
+          
+          {this.props.contactSupport && (
+            <p className="mt-6 text-sm text-neutral-500">
+              If the problem persists, please contact support.
+            </p>
+          )}
+        </div>
+      </div>
+    );
   }
 
   render() {
-    if (this.state?.hasError) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-          <div className="text-center p-8 max-w-md">
-            <div className="flex justify-center items-center mb-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="42px" height="42px" viewBox="0 0 32 33" fill="none">
-                <path d="M16 28.5C22.6274 28.5 28 23.1274 28 16.5C28 9.87258 22.6274 4.5 16 4.5C9.37258 4.5 4 9.87258 4 16.5C4 23.1274 9.37258 28.5 16 28.5Z" stroke="#343330" strokeWidth="2" strokeMiterlimit="10" />
-                <path d="M11.5 15.5C12.3284 15.5 13 14.8284 13 14C13 13.1716 12.3284 12.5 11.5 12.5C10.6716 12.5 10 13.1716 10 14C10 14.8284 10.6716 15.5 11.5 15.5Z" fill="#343330" />
-                <path d="M20.5 15.5C21.3284 15.5 22 14.8284 22 14C22 13.1716 21.3284 12.5 20.5 12.5C19.6716 12.5 19 13.1716 19 14C19 14.8284 19.6716 15.5 20.5 15.5Z" fill="#343330" />
-                <path d="M21 22.5C19.9625 20.7062 18.2213 19.5 16 19.5C13.7787 19.5 12.0375 20.7062 11 22.5" stroke="#343330" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <div className="flex flex-col gap-1 text-center">
-              <h1 className="text-2xl font-medium text-neutral-800">Something went wrong</h1>
-              <p className="text-neutral-600 text-base w w-8/12 mx-auto">We encountered an unexpected error while processing your request.</p>
-            </div>
-            <div className="flex justify-center items-center mt-6">
-              <button
-                onClick={() => {
-                  window.location.href = "/";
-                }}
-                className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded flex items-center gap-2 transition-colors duration-200 shadow-sm"
-              >
-                <Icon name="ArrowLeft" size={18} color="#fff" />
-                Back
-              </button>
-            </div>
-          </div >
-        </div >
-      );
+    if (this.state.hasError) {
+      return this.renderErrorContent();
     }
 
-    return this.props?.children;
+    return this.props.children;
   }
 }
+
+// PropTypes for better development experience
+ErrorBoundary.propTypes = {
+  children: PropTypes.node.isRequired,
+  fallback: PropTypes.elementType,
+  onReset: PropTypes.func,
+  onGoHome: PropTypes.func,
+  errorTitle: PropTypes.string,
+  errorMessage: PropTypes.string,
+  showDetails: PropTypes.bool,
+  showResetButton: PropTypes.bool,
+  showHomeButton: PropTypes.bool,
+  showReloadButton: PropTypes.bool,
+  contactSupport: PropTypes.bool
+};
+
+// Default props
+ErrorBoundary.defaultProps = {
+  showDetails: process.env.NODE_ENV === 'development',
+  showResetButton: true,
+  showHomeButton: true,
+  showReloadButton: true,
+  contactSupport: true
+};
 
 export default ErrorBoundary;

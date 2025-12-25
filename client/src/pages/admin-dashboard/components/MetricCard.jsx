@@ -1,39 +1,48 @@
 import React from 'react';
-import Icon from '../../../components/AppIcon';
 
-const MetricCard = ({ title, value, change, changeType, icon, iconColor, trend }) => {
-  const isPositive = changeType === 'positive';
-  const isNegative = changeType === 'negative';
-
+const MetricCard = ({ metric }) => {
   return (
-    <div className="bg-card border border-border rounded-lg p-6 shadow-elevation-2 transition-micro hover:shadow-elevation-3">
+    <div 
+      className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-shadow cursor-pointer"
+      onClick={metric.onClick}
+    >
       <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <p className="text-sm text-muted-foreground font-medium mb-1">{title}</p>
-          <h3 className="text-3xl font-bold text-foreground">{value}</h3>
+        <div className={`p-3 rounded-xl bg-gradient-to-br ${metric.iconColor} shadow-md`}>
+          <div className="text-white">
+            {metric.icon}
+          </div>
         </div>
-        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${iconColor}`}>
-          <Icon name={icon} size={24} color="white" />
-        </div>
+        <span className={`text-sm font-medium px-3 py-1 rounded-full ${
+          metric.changeType === 'positive'
+            ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400'
+            : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
+        }`}>
+          {metric.change}
+        </span>
       </div>
       
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <div className={`flex items-center space-x-1 px-2 py-1 rounded-md ${
-            isPositive ? 'bg-success/10' : isNegative ? 'bg-error/10' : 'bg-muted'
-          }`}>
-            <Icon 
-              name={isPositive ? 'TrendingUp' : isNegative ? 'TrendingDown' : 'Minus'} 
-              size={14} 
-              color={isPositive ? 'var(--color-success)' : isNegative ? 'var(--color-error)' : 'var(--color-muted-foreground)'}
-            />
-            <span className={`text-xs font-semibold ${
-              isPositive ? 'text-success' : isNegative ? 'text-error' : 'text-muted-foreground'
-            }`}>
-              {change}
-            </span>
+      <div>
+        <h3 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white mb-1">
+          {metric.value}
+        </h3>
+        <p className="text-gray-700 dark:text-gray-300 font-medium mb-2">
+          {metric.title}
+        </p>
+        <div className="flex items-center justify-between mt-4">
+          <div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {metric.trend}
+            </p>
+            {metric.detail && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{metric.detail}</p>
+            )}
           </div>
-          <span className="text-xs text-muted-foreground">{trend}</span>
+          <button className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium flex items-center">
+            View
+            <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
       </div>
     </div>

@@ -1,578 +1,518 @@
 const User = require('../models/User');
-const Customer = require('../models/Customer');
-const ServiceProvider = require('../models/ServiceProvider');
-const { generateAccessToken, generateRefreshToken, generateVerificationToken, generateResetToken } = require('../utils/generateTokens');
-const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/sendEmail');
-const validator = require('validator');
+const jwt = require('jsonwebtoken');
 
-// Register Customer
-const registerCustomer = async (req, res) => {
-  try {
-    const { name, phone, address, password } = req.body;
-
-    // Validation
-    if (!name || !phone || !address || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'All fields are required'
-      });
-    }
-
-    // Check if phone already exists
-    const existingCustomer = await Customer.findOne({ phone });
-    if (existingCustomer) {
-      return res.status(400).json({
-        success: false,
-        message: 'Phone number already registered'
-      });
-    }
-
-    // Create new customer
-    const customer = new Customer({
-      userType: 'customer',
-      name,
-      phone,
-      address,
-      password
-    });
-
-    await customer.save();
-
-    // Generate tokens
-    const accessToken = generateAccessToken(customer);
-    const refreshToken = generateRefreshToken(customer);
-
-    // Save refresh token
-    customer.refreshToken = refreshToken;
-    await customer.save();
-
-    // Update last login
-    await customer.updateLastLogin();
-
-    // Remove sensitive data
-    const userResponse = customer.toObject();
-    delete userResponse.password;
-    delete userResponse.refreshToken;
-
-    res.status(201).json({
-      success: true,
-      message: 'Customer registration successful',
-      data: {
-        token: accessToken,
-        refreshToken,
-        user: userResponse
-      }
-    });
-
-  } catch (error) {
-    console.error('Customer registration error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Registration failed',
-      error: error.message
-    });
-  }
+// Generate JWT Token
+const generateToken = (userId, userType) => {
+    return jwt.sign(
+        { 
+            userId, 
+            userType 
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRE || '1d' }
+    );
 };
 
-// Register Service Provider
-// const validator = require('validator');
-// const ServiceProvider = require('../models/ServiceProvider'); // apka model
-// const { generateVerificationToken, generateAccessToken } = require('../utils/jwt');
-// const { sendVerificationEmail } = require('../utils/emailService');
+// Generate Refresh Token
+const generateRefreshToken = (userId) => {
+    return jwt.sign(
+        { userId },
+        process.env.REFRESH_TOKEN_SECRET,
+        { expiresIn: process.env.REFRESH_TOKEN_EXPIRE || '7d' }
+    );
+};
 
-const registerServiceProvider = async (req, res) => {
-  try {
-    const { name, email, address, password, companyName, serviceType } = req.body;
-
-    // 1️⃣ Required fields validation
-    if (!name || !email || !address || !password || !companyName) {
-      return res.status(400).json({
-        success: false,
-        message: 'All required fields are mandatory: name, email, address, password, companyName',
-      });
-    }
-
-    // 2️⃣ Email format validation
-    if (!validator.isEmail(email)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide a valid email address',
-      });
-    }
-
-    // 3️⃣ Check if email already exists
-    const existingProvider = await ServiceProvider.findOne({ email });
-    if (existingProvider) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email already registered',
-      });
-    }
-
-    // 4️⃣ Generate verification token
-    const verificationToken = generateVerificationToken();
-
-    // 5️⃣ Create new service provider
-    const serviceProvider = new ServiceProvider({
-      userType: 'service_provider',
-      name: name.trim(),
-      email: email.toLowerCase().trim(),
-      address: address.trim(),
-      password, // assume pre-save hook hashes password
-      companyName: companyName.trim(),
-      serviceType: serviceType || 'other',
-      verificationToken,
-      verificationTokenExpires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
-    });
-
-    await serviceProvider.save();
-
-    // 6️⃣ Generate access token
-    const accessToken = generateAccessToken(serviceProvider);
-
-    // 7️⃣ Send verification email safely
+// Customer Registration
+exports.registerCustomer = async (req, res) => {
     try {
-      await sendVerificationEmail(email, verificationToken, name);
-    } catch (emailError) {
-      console.warn('Failed to send verification email:', emailError.message);
-      // Don't fail registration due to email
+        const { name, phone, address, password } = req.body;
+
+        // Check if customer already exists with this phone
+        const existingCustomer = await User.findOne({ 
+            phone,
+            userType: 'customer' 
+        });
+        
+        if (existingCustomer) {
+            return res.status(400).json({
+                success: false,
+                message: 'Customer already exists with this phone number'
+            });
+        }
+
+        // Create new customer
+        const customer = new User({
+            name,
+            phone,
+            address,
+            password,
+            userType: 'customer'
+        });
+
+        await customer.save();
+
+        // Generate tokens
+        const token = generateToken(customer._id, 'customer');
+        const refreshToken = generateRefreshToken(customer._id);
+
+        // Save refresh token
+        customer.refreshToken = refreshToken;
+        customer.lastLogin = new Date();
+        await customer.save();
+
+        // Prepare response data
+        const customerData = {
+            id: customer._id,
+            name: customer.name,
+            phone: customer.phone,
+            address: customer.address,
+            userType: customer.userType,
+            profileImage: customer.profileImage,
+            totalOrders: customer.totalOrders,
+            totalSpent: customer.totalSpent,
+            createdAt: customer.createdAt
+        };
+
+        res.status(201).json({
+            success: true,
+            message: 'Customer registered successfully',
+            data: {
+                token,
+                refreshToken,
+                user: customerData
+            }
+        });
+    } catch (error) {
+        console.error('Registration error:', error);
+        
+        // Handle validation errors
+        if (error.name === 'ValidationError') {
+            const messages = Object.values(error.errors).map(err => err.message);
+            return res.status(400).json({
+                success: false,
+                message: messages.join(', ')
+            });
+        }
+        
+        // Handle duplicate key error
+        if (error.code === 11000) {
+            return res.status(400).json({
+                success: false,
+                message: 'Phone number already registered'
+            });
+        }
+        
+        res.status(400).json({
+            success: false,
+            message: error.message || 'Registration failed'
+        });
     }
-
-    // 8️⃣ Remove sensitive data before sending response
-    const userResponse = serviceProvider.toObject();
-    delete userResponse.password;
-    delete userResponse.verificationToken;
-    delete userResponse.verificationTokenExpires;
-
-    res.status(201).json({
-      success: true,
-      message: 'Service provider registered successfully. Please check your email for verification.',
-      data: {
-        token: accessToken,
-        user: userResponse,
-      },
-    });
-
-  } catch (error) {
-    console.error('Service provider registration error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Registration failed',
-      error: error.message,
-    });
-  }
 };
 
-// Login
-const login = async (req, res) => {
-  try {
-    const { identifier, password, userType } = req.body;
+// Customer Login
+exports.loginCustomer = async (req, res) => {
+    try {
+        const { phone, password } = req.body;
 
-    if (!identifier || !password || !userType) {
-      return res.status(400).json({
-        success: false,
-        message: 'All fields are required'
-      });
+        // Find customer by phone
+        const customer = await User.findOne({ 
+            phone,
+            userType: 'customer',
+            isActive: true 
+        });
+
+        if (!customer) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid phone number or password'
+            });
+        }
+
+        // Check password
+        const isMatch = await customer.comparePassword(password);
+        if (!isMatch) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid phone number or password'
+            });
+        }
+
+        // Generate tokens
+        const token = generateToken(customer._id, 'customer');
+        const refreshToken = generateRefreshToken(customer._id);
+
+        // Update last login and save refresh token
+        customer.lastLogin = new Date();
+        customer.refreshToken = refreshToken;
+        await customer.save();
+
+        // Prepare response data
+        const customerData = {
+            id: customer._id,
+            name: customer.name,
+            phone: customer.phone,
+            address: customer.address,
+            userType: customer.userType,
+            profileImage: customer.profileImage,
+            totalOrders: customer.totalOrders,
+            totalSpent: customer.totalSpent,
+            createdAt: customer.createdAt
+        };
+
+        res.json({
+            success: true,
+            message: 'Login successful',
+            data: {
+                token,
+                refreshToken,
+                user: customerData
+            }
+        });
+    } catch (error) {
+        console.error('Customer login error:', error);
+        res.status(400).json({
+            success: false,
+            message: error.message || 'Login failed'
+        });
     }
+};
 
-    let user;
+// Admin Login
+exports.loginAdmin = async (req, res) => {
+    try {
+        const { email, password } = req.body;
 
-    // Find user based on type and identifier
-    if (userType === 'customer') {
-      // Customer login with phone
-      user = await Customer.findOne({ phone: identifier }).select('+password');
-    } else if (userType === 'service_provider') {
-      // Service provider login with email
-      user = await ServiceProvider.findOne({ email: identifier }).select('+password');
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid user type'
-      });
+        // Find admin by email
+        const admin = await User.findOne({ 
+            email,
+            userType: 'admin',
+            isActive: true 
+        });
+
+        if (!admin) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password'
+            });
+        }
+
+        // Check password
+        const isMatch = await admin.comparePassword(password);
+        if (!isMatch) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password'
+            });
+        }
+
+        // Generate tokens
+        const token = generateToken(admin._id, 'admin');
+        const refreshToken = generateRefreshToken(admin._id);
+
+        // Update last login and save refresh token
+        admin.lastLogin = new Date();
+        admin.refreshToken = refreshToken;
+        await admin.save();
+
+        // Prepare response data
+        const adminData = {
+            id: admin._id,
+            name: admin.name,
+            email: admin.email,
+            userType: admin.userType,
+            adminRole: admin.adminRole,
+            permissions: admin.permissions,
+            shopName: admin.shopName,
+            shopAddress: admin.shopAddress,
+            shopPhone: admin.shopPhone,
+            profileImage: admin.profileImage,
+            createdAt: admin.createdAt
+        };
+
+        res.json({
+            success: true,
+            message: 'Admin login successful',
+            data: {
+                token,
+                refreshToken,
+                user: adminData
+            }
+        });
+    } catch (error) {
+        console.error('Admin login error:', error);
+        res.status(400).json({
+            success: false,
+            message: error.message || 'Login failed'
+        });
     }
-
-    // Check if user exists
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
-    }
-
-    // Check if account is active
-    if (!user.isActive) {
-      return res.status(401).json({
-        success: false,
-        message: 'Account is deactivated'
-      });
-    }
-
-    // Check password
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
-    }
-
-    // For service providers, check verification
-    if (user.userType === 'service_provider' && !user.isVerified) {
-      return res.status(403).json({
-        success: false,
-        message: 'Account not verified. Please verify your email first.'
-      });
-    }
-
-    // Generate tokens
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-
-    // Save refresh token
-    user.refreshToken = refreshToken;
-    await user.save();
-
-    // Update last login
-    await user.updateLastLogin();
-
-    // Remove sensitive data
-    const userResponse = user.toObject();
-    delete userResponse.password;
-    delete userResponse.refreshToken;
-    delete userResponse.verificationToken;
-    delete userResponse.verificationTokenExpires;
-
-    res.status(200).json({
-      success: true,
-      message: 'Login successful',
-      data: {
-        token: accessToken,
-        refreshToken,
-        user: userResponse
-      }
-    });
-
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Login failed',
-      error: error.message
-    });
-  }
 };
 
 // Refresh Token
-const refreshToken = async (req, res) => {
-  try {
-    const { refreshToken } = req.body;
+exports.refreshToken = async (req, res) => {
+    try {
+        const { refreshToken } = req.body;
 
-    if (!refreshToken) {
-      return res.status(400).json({
-        success: false,
-        message: 'Refresh token is required'
-      });
+        if (!refreshToken) {
+            return res.status(401).json({
+                success: false,
+                message: 'Refresh token required'
+            });
+        }
+
+        // Verify refresh token
+        const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+        
+        // Find user with refresh token
+        const user = await User.findOne({ 
+            _id: decoded.userId, 
+            refreshToken,
+            isActive: true 
+        });
+
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid refresh token'
+            });
+        }
+
+        // Generate new access token
+        const token = generateToken(user._id, user.userType);
+
+        res.json({
+            success: true,
+            message: 'Token refreshed',
+            data: { token }
+        });
+    } catch (error) {
+        console.error('Refresh token error:', error);
+        
+        if (error.name === 'JsonWebTokenError') {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid refresh token'
+            });
+        }
+        
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({
+                success: false,
+                message: 'Refresh token expired. Please login again.'
+            });
+        }
+        
+        res.status(401).json({
+            success: false,
+            message: 'Token refresh failed'
+        });
     }
-
-    // Verify refresh token
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-
-    // Find user with refresh token
-    const user = await User.findOne({
-      _id: decoded.id,
-      refreshToken: refreshToken
-    });
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid refresh token'
-      });
-    }
-
-    // Generate new access token
-    const newAccessToken = generateAccessToken(user);
-
-    res.status(200).json({
-      success: true,
-      message: 'Token refreshed successfully',
-      data: {
-        token: newAccessToken
-      }
-    });
-
-  } catch (error) {
-    console.error('Refresh token error:', error);
-    
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid refresh token'
-      });
-    }
-    
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({
-        success: false,
-        message: 'Refresh token expired'
-      });
-    }
-    
-    res.status(500).json({
-      success: false,
-      message: 'Failed to refresh token'
-    });
-  }
 };
 
-// Verify Email
-const verifyEmail = async (req, res) => {
-  try {
-    const { token } = req.query;
+// Get Current User Profile
+exports.getProfile = async (req, res) => {
+    try {
+        const user = req.user;
+        
+        let userData;
+        
+        if (user.userType === 'admin') {
+            userData = {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                userType: user.userType,
+                adminRole: user.adminRole,
+                permissions: user.permissions,
+                shopName: user.shopName,
+                shopAddress: user.shopAddress,
+                shopPhone: user.shopPhone,
+                profileImage: user.profileImage,
+                isActive: user.isActive,
+                lastLogin: user.lastLogin,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt
+            };
+        } else {
+            userData = {
+                id: user._id,
+                name: user.name,
+                phone: user.phone,
+                address: user.address,
+                userType: user.userType,
+                profileImage: user.profileImage,
+                totalOrders: user.totalOrders,
+                totalSpent: user.totalSpent,
+                isActive: user.isActive,
+                lastLogin: user.lastLogin,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt
+            };
+        }
 
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: 'Verification token is required'
-      });
+        res.json({
+            success: true,
+            data: userData
+        });
+    } catch (error) {
+        console.error('Get profile error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to get profile'
+        });
     }
-
-    // Find service provider with token
-    const serviceProvider = await ServiceProvider.findOne({
-      verificationToken: token,
-      verificationTokenExpires: { $gt: Date.now() }
-    });
-
-    if (!serviceProvider) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid or expired verification token'
-      });
-    }
-
-    // Mark as verified
-    serviceProvider.isVerified = true;
-    serviceProvider.verificationToken = undefined;
-    serviceProvider.verificationTokenExpires = undefined;
-    await serviceProvider.save();
-
-    res.status(200).json({
-      success: true,
-      message: 'Email verified successfully'
-    });
-
-  } catch (error) {
-    console.error('Email verification error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Email verification failed'
-    });
-  }
 };
 
-// Resend Verification Email
-const resendVerification = async (req, res) => {
-  try {
-    const { email } = req.body;
+// Update Profile
+exports.updateProfile = async (req, res) => {
+    try {
+        const user = req.user;
+        const updateData = req.body;
+        
+        // Remove fields that shouldn't be updated
+        delete updateData.password;
+        delete updateData.userType;
+        delete updateData.isActive;
+        delete updateData.refreshToken;
+        
+        // Update user
+        Object.assign(user, updateData);
+        await user.save();
+        
+        // Prepare response data
+        let userData;
+        
+        if (user.userType === 'admin') {
+            userData = {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                userType: user.userType,
+                adminRole: user.adminRole,
+                shopName: user.shopName,
+                shopAddress: user.shopAddress,
+                shopPhone: user.shopPhone,
+                profileImage: user.profileImage
+            };
+        } else {
+            userData = {
+                id: user._id,
+                name: user.name,
+                phone: user.phone,
+                address: user.address,
+                userType: user.userType,
+                profileImage: user.profileImage
+            };
+        }
 
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email is required'
-      });
+        res.json({
+            success: true,
+            message: 'Profile updated successfully',
+            data: userData
+        });
+    } catch (error) {
+        console.error('Update profile error:', error);
+        res.status(400).json({
+            success: false,
+            message: error.message || 'Failed to update profile'
+        });
     }
-
-    // Find service provider
-    const serviceProvider = await ServiceProvider.findOne({ email });
-
-    if (!serviceProvider) {
-      return res.status(404).json({
-        success: false,
-        message: 'Service provider not found'
-      });
-    }
-
-    if (serviceProvider.isVerified) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email is already verified'
-      });
-    }
-
-    // Generate new verification token
-    const verificationToken = generateVerificationToken();
-    serviceProvider.verificationToken = verificationToken;
-    serviceProvider.verificationTokenExpires = Date.now() + 24 * 60 * 60 * 1000;
-    await serviceProvider.save();
-
-    // Send verification email
-    await sendVerificationEmail(email, verificationToken, serviceProvider.name);
-
-    res.status(200).json({
-      success: true,
-      message: 'Verification email sent successfully'
-    });
-
-  } catch (error) {
-    console.error('Resend verification error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to resend verification email'
-    });
-  }
 };
 
-// Forgot Password
-const forgotPassword = async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email is required'
-      });
+// Change Password
+exports.changePassword = async (req, res) => {
+    try {
+        const user = req.user;
+        const { currentPassword, newPassword } = req.body;
+        
+        // Verify current password
+        const isMatch = await user.comparePassword(currentPassword);
+        if (!isMatch) {
+            return res.status(400).json({
+                success: false,
+                message: 'Current password is incorrect'
+            });
+        }
+        
+        // Update password
+        user.password = newPassword;
+        await user.save();
+        
+        res.json({
+            success: true,
+            message: 'Password changed successfully'
+        });
+    } catch (error) {
+        console.error('Change password error:', error);
+        res.status(400).json({
+            success: false,
+            message: error.message || 'Failed to change password'
+        });
     }
-
-    // Find user by email
-    const user = await User.findOne({ email });
-
-    if (!user) {
-      // Don't reveal that user doesn't exist
-      return res.status(200).json({
-        success: true,
-        message: 'If an account exists with this email, you will receive a password reset link'
-      });
-    }
-
-    // Generate reset token
-    const resetToken = generateResetToken();
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
-    await user.save();
-
-    // Send reset email
-    await sendPasswordResetEmail(email, resetToken, user.name);
-
-    res.status(200).json({
-      success: true,
-      message: 'Password reset instructions sent to your email'
-    });
-
-  } catch (error) {
-    console.error('Forgot password error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to process password reset request'
-    });
-  }
-};
-
-// Reset Password
-const resetPassword = async (req, res) => {
-  try {
-    const { token, newPassword } = req.body;
-
-    if (!token || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        message: 'Token and new password are required'
-      });
-    }
-
-    // Find user with valid reset token
-    const user = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() }
-    });
-
-    if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid or expired reset token'
-      });
-    }
-
-    // Update password
-    user.password = newPassword;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
-    await user.save();
-
-    res.status(200).json({
-      success: true,
-      message: 'Password reset successful'
-    });
-
-  } catch (error) {
-    console.error('Reset password error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to reset password'
-    });
-  }
-};
-
-// Get Current User
-const getCurrentUser = async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id)
-      .select('-password -refreshToken -verificationToken -resetPasswordToken');
-    
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: { user }
-    });
-
-  } catch (error) {
-    console.error('Get current user error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch user data'
-    });
-  }
 };
 
 // Logout
-const logout = async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id);
-    
-    if (user) {
-      user.refreshToken = undefined;
-      await user.save();
+exports.logout = async (req, res) => {
+    try {
+        const user = req.user;
+        
+        // Clear refresh token
+        user.refreshToken = null;
+        await user.save();
+        
+        res.json({
+            success: true,
+            message: 'Logged out successfully'
+        });
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Logout failed'
+        });
     }
-
-    res.status(200).json({
-      success: true,
-      message: 'Logged out successfully'
-    });
-
-  } catch (error) {
-    console.error('Logout error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Logout failed'
-    });
-  }
 };
 
-module.exports = {
-  registerCustomer,
-  registerServiceProvider,
-  login,
-  refreshToken,
-  verifyEmail,
-  resendVerification,
-  forgotPassword,
-  resetPassword,
-  getCurrentUser,
-  logout
+// Get Dashboard Stats
+exports.getDashboardStats = async (req, res) => {
+    try {
+        const user = req.user;
+        
+        let stats;
+        
+        if (user.userType === 'admin') {
+            // Admin dashboard stats
+            const totalCustomers = await User.countDocuments({ userType: 'customer', isActive: true });
+            const todayCustomers = await User.countDocuments({ 
+                userType: 'customer', 
+                isActive: true,
+                createdAt: { $gte: new Date().setHours(0, 0, 0, 0) }
+            });
+            
+            stats = {
+                totalCustomers,
+                todayCustomers,
+                shopName: user.shopName,
+                adminRole: user.adminRole
+            };
+        } else {
+            // Customer dashboard stats
+            stats = {
+                totalOrders: user.totalOrders || 0,
+                totalSpent: user.totalSpent || 0,
+                memberSince: user.createdAt,
+                lastLogin: user.lastLogin
+            };
+        }
+        
+        res.json({
+            success: true,
+            data: stats
+        });
+    } catch (error) {
+        console.error('Get dashboard stats error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to get dashboard stats'
+        });
+    }
 };

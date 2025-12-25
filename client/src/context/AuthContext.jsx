@@ -1,119 +1,175 @@
-import { createContext, useState, useContext, useEffect } from 'react';
-import { api } from '../pages/auths/Auth';
+// src/contexts/AuthContext.jsx
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext({});
 
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authState, setAuthState] = useState({
+    isAuthenticated: false,
+    user: null,
+    role: null,
+    loading: true,
+    token: null
+  });
 
-    // Initialize auth state
-    useEffect(() => {
-        const token = localStorage.getItem("token");
-        const userData = localStorage.getItem("user");
-        
-        if (token && userData) {
-            try {
-                const parsedUser = JSON.parse(userData);
-                setUser(parsedUser);
-                setIsAuthenticated(true);
-                
-                // Verify token is still valid
-                api.get('/auth/me')
-                    .catch(() => {
-                        // Token invalid, logout
-                        logout();
-                    });
-            } catch (error) {
-                console.error("Error parsing user data:", error);
-                logout();
-            }
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    checkAuth();
+    
+    // Auto-check auth every minute
+    const interval = setInterval(checkAuth, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const checkAuth = () => {
+    try {
+      const token = localStorage.getItem('token');
+      const user = localStorage.getItem('user');
+      const role = localStorage.getItem('userType');
+      const expiresAt = localStorage.getItem('tokenExpiry');
+
+      if (token && user) {
+        // Check token expiry
+        if (expiresAt && new Date(expiresAt) > new Date()) {
+          setAuthState({
+            isAuthenticated: true,
+            user: JSON.parse(user),
+            role,
+            token,
+            loading: false
+          });
+          return;
         }
-        setLoading(false);
-    }, []);
+      }
+      
+      // Clear invalid auth
+      setAuthState({
+        isAuthenticated: false,
+        user: null,
+        role: null,
+        token: null,
+        loading: false
+      });
+    } catch (error) {
+      console.error('Auth check error:', error);
+      setAuthState(prev => ({ ...prev, loading: false }));
+    }
+  };
 
-    const login = (userData, token, refreshToken) => {
-        localStorage.setItem("token", token);
-        localStorage.setItem("refreshToken", refreshToken);
-        localStorage.setItem("user", JSON.stringify(userData));
-        setUser(userData);
-        setIsAuthenticated(true);
+  const login = (token, userData, role, expiresIn = 24) => {
+    const expiryDate = new Date();
+    expiryDate.setHours(expiryDate.getHours() + expiresIn);
+
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('userType', role);
+    localStorage.setItem('tokenExpiry', expiryDate.toISOString());
+    localStorage.setItem('lastActive', new Date().toISOString());
+
+    setAuthState({
+      isAuthenticated: true,
+      user: userData,
+      role,
+      token,
+      loading: false
+    });
+
+    // Redirect based on role
+    const redirectPath = sessionStorage.getItem('redirectAfterLogin') || 
+                       (role === 'admin' ? '/admin/dashboard' : '/customer/dashboard');
+    sessionStorage.removeItem('redirectAfterLogin');
+    navigate(redirectPath);
+  };
+
+  const logout = (redirectToLogin = true) => {
+    // Clear all auth data
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('userType');
+    localStorage.removeItem('tokenExpiry');
+    localStorage.removeItem('lastActive');
+
+    setAuthState({
+      isAuthenticated: false,
+      user: null,
+      role: null,
+      token: null,
+      loading: false
+    });
+
+    if (redirectToLogin) {
+      navigate('/auth');
+    }
+  };
+
+  const updateUser = (updatedData) => {
+    const currentUser = { ...authState.user, ...updatedData };
+    localStorage.setItem('user', JSON.stringify(currentUser));
+    setAuthState(prev => ({ ...prev, user: currentUser }));
+  };
+
+  const refreshToken = async () => {
+    try {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        logout();
+        return false;
+      }
+
+      // Call your refresh token API
+      // const response = await api.post('/auth/refresh', { refreshToken });
+      // const { token, expiresIn } = response.data;
+      
+      // Mock response for now
+      const token = 'new-token-from-refresh';
+      const expiresIn = 24;
+
+      const expiryDate = new Date();
+      expiryDate.setHours(expiryDate.getHours() + expiresIn);
+
+      localStorage.setItem('token', token);
+      localStorage.setItem('tokenExpiry', expiryDate.toISOString());
+
+      setAuthState(prev => ({ ...prev, token }));
+      return true;
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      logout();
+      return false;
+    }
+  };
+
+  const hasPermission = (requiredRole) => {
+    if (!authState.role) return false;
+    
+    const roleHierarchy = {
+      'superadmin': ['admin', 'customer', 'superadmin'],
+      'admin': ['customer', 'admin'],
+      'customer': ['customer'],
+      'guest': []
     };
 
-    const logout = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            if (token) {
-                await api.post("/auth/logout");
-            }
-        } catch (error) {
-            console.error("Logout error:", error);
-        } finally {
-            localStorage.removeItem("token");
-            localStorage.removeItem("refreshToken");
-            localStorage.removeItem("user");
-            localStorage.removeItem("pendingVerificationEmail");
-            setUser(null);
-            setIsAuthenticated(false);
-        }
-    };
+    return roleHierarchy[authState.role]?.includes(requiredRole) || false;
+  };
 
-    const updateUser = (updatedUser) => {
-        localStorage.setItem("user", JSON.stringify(updatedUser));
-        setUser(updatedUser);
-    };
-
-    const verifyEmail = async (token) => {
-        try {
-            const response = await api.post("/auth/verify-email", { token });
-            if (response.data.success) {
-                const { user: updatedUser, token: newToken } = response.data.data;
-                localStorage.setItem("user", JSON.stringify(updatedUser));
-                localStorage.setItem("token", newToken);
-                setUser(updatedUser);
-                return { success: true, user: updatedUser };
-            }
-            return { success: false, message: response.data.message };
-        } catch (error) {
-            return { 
-                success: false, 
-                message: error.response?.data?.message || "Verification failed" 
-            };
-        }
-    };
-
-    const resendVerification = async (email) => {
-        try {
-            const response = await api.post("/auth/resend-verification", { email });
-            return { success: response.data.success, message: response.data.message };
-        } catch (error) {
-            return { 
-                success: false, 
-                message: error.response?.data?.message || "Failed to resend verification" 
-            };
-        }
-    };
-
-    const value = {
-        user,
-        loading,
-        isAuthenticated,
+  return (
+    <AuthContext.Provider
+      value={{
+        ...authState,
         login,
         logout,
         updateUser,
-        verifyEmail,
-        resendVerification,
-        isServiceProvider: user?.userType === 'service_provider',
-        isCustomer: user?.userType === 'customer',
-        isVerified: user?.isVerified || false,
-    };
-
-    return (
-        <AuthContext.Provider value={value}>
-            {children}
-        </AuthContext.Provider>
-    );
+        refreshToken,
+        checkAuth,
+        hasPermission
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };

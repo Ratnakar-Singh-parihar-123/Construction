@@ -14,8 +14,8 @@ const Footer = () => {
 
   const contactInfo = [
     { icon: 'Phone', text: '+91 98765 43210' },
-    { icon: 'Mail', text: 'info@constructhubpro.com' },
-    { icon: 'MapPin', text: 'Shop No. 45, Industrial Area, Sector 12, Mumbai - 400001' }
+    { icon: 'Mail', text: 'rsconstruction@gmail.com' },
+    { icon: 'MapPin', text: 'Shop No. 45, Industrial Area, Sector 12, Bhopal - 400001' }
   ];
 
   const businessHours = [
@@ -32,7 +32,7 @@ const Footer = () => {
               <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
                 <Icon name="HardHat" size={24} color="var(--color-primary)" />
               </div>
-              <span className="text-xl font-bold">ConstructHub Pro</span>
+              <span className="text-xl font-bold">RS Construction</span>
             </div>
             <p className="text-sm text-secondary-foreground/80">
               Your trusted partner for premium construction materials and hardware supplies since 2010.
@@ -95,7 +95,7 @@ const Footer = () => {
         <div className="border-t border-secondary-foreground/20 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             <p className="text-sm text-secondary-foreground/80">
-              © {currentYear} ConstructHub Pro. All rights reserved.
+              © {currentYear} RS Construction. All rights reserved.
             </p>
             <div className="flex items-center space-x-6">
               <a href="#" className="text-sm text-secondary-foreground/80 hover:text-primary transition-colors">
