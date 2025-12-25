@@ -1,4 +1,4 @@
-// Updated RoutesComponent with ProtectedRoute and CCTV Pages
+// Updated RoutesComponent with ProtectedRoute, CCTV Pages, Payments, and Orders
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
@@ -27,17 +27,26 @@ import AdminCustomerManagement from "./pages/admin-customer-management";
 import EnhancedCustomerManagement from "./pages/admin-customer-management/components/EnhancedCustomerManagement";
 import InventoryManagement from "./pages/inventory-management/InventoryManagement";
 import AdminDailyRates from "./pages/admin-dashboard/components/DailyRates";
+import AdminOrders from "./pages/admin-dashboard/components/AdminOrders";
+import AdminPayments from "./pages/admin-dashboard/components/AdminPayments";
 
 // Customer
 import CustomerDashboard from "./pages/customer-dashboard";
 import CustomerLedger from "./pages/customer-ledger";
-import TractorTracking from "./pages/admin-dashboard/components/TractorTracking";
+import CustomerOrders from "./pages/customer-dashboard/components/CustomerOrders";
+import OrderDetails from "./pages/customer-dashboard/components/OrderDetails";
+import CheckoutPage from "./pages/checkout/CheckoutPage";
+import PaymentSuccess from "./pages/checkout/PaymentSuccess";
+import PaymentFailed from "./pages/checkout/PaymentFailed";
 
 // CCTV & Surveillance
 import CCTVDashboard from "./cctv/CCTVDashboard";
 import CameraView from "./cctv/CameraView";
 import CCTVPlayback from "./cctv/CCTVPlayback";
 import CCTVSettings from "./cctv/CCTVSettings";
+
+// Tractor Tracking
+import TractorTracking from "./pages/admin-dashboard/components/TractorTracking";
 
 // Shared
 import Profile from "./pages/profile/ProfilePage";
@@ -85,6 +94,11 @@ const RoutesComponent = () => {
               <Route path="profile" element={<Profile />} />
               <Route path="ledger" element={<CustomerLedger />} />
               
+              {/* Admin Orders & Payments */}
+              <Route path="orders" element={<AdminOrders />} />
+              <Route path="orders/:orderId" element={<OrderDetails />} />
+              <Route path="payments" element={<AdminPayments />} />
+              
               {/* CCTV & Surveillance Routes - Admin Only */}
               <Route path="cctv" element={<Navigate to="cctv/dashboard" replace />} />
               <Route path="cctv/dashboard" element={<CCTVDashboard />} />
@@ -108,7 +122,58 @@ const RoutesComponent = () => {
               <Route path="rates" element={<DailyRatesCard />} />
               <Route path="profile" element={<Profile />} />
               <Route path="tracking" element={<TractorTracking />} />
+              
+              {/* Customer Orders & Payments */}
+              <Route path="orders" element={<CustomerOrders />} />
+              <Route path="orders/:orderId" element={<OrderDetails />} />
+              <Route path="orders/history" element={<CustomerOrders />} />
+              <Route path="quotations" element={<CustomerOrders />} />
+              <Route path="wishlist" element={<CustomerOrders />} />
+              <Route path="notifications" element={<CustomerOrders />} />
+              <Route path="settings" element={<Profile />} />
             </Route>
+
+            {/* ===== PAYMENT & CHECKOUT ROUTES ===== */}
+            <Route
+              path="/checkout"
+              element={
+                <ProtectedRoute allowedRoles={["customer", "admin", "superadmin"]}>
+                  <CheckoutPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/checkout/payment"
+              element={
+                <ProtectedRoute allowedRoles={["customer", "admin", "superadmin"]}>
+                  <CheckoutPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payment/success"
+              element={
+                <ProtectedRoute allowedRoles={["customer", "admin", "superadmin"]}>
+                  <PaymentSuccess />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payment/failed"
+              element={
+                <ProtectedRoute allowedRoles={["customer", "admin", "superadmin"]}>
+                  <PaymentFailed />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payment/verify"
+              element={
+                <ProtectedRoute allowedRoles={["customer", "admin", "superadmin"]}>
+                  <PaymentSuccess />
+                </ProtectedRoute>
+              }
+            />
 
             {/* ===== CCTV & SURVEILLANCE ROUTES ===== */}
             <Route
@@ -173,6 +238,24 @@ const RoutesComponent = () => {
             />
             
             <Route
+              path="/my-orders"
+              element={
+                <ProtectedRoute allowedRoles={["customer", "admin", "superadmin"]}>
+                  <CustomerOrders />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/order/:orderId"
+              element={
+                <ProtectedRoute allowedRoles={["customer", "admin", "superadmin"]}>
+                  <OrderDetails />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
               path="/admin-customer-management"
               element={
                 <ProtectedRoute allowedRoles={["admin", "superadmin"]}>
@@ -207,6 +290,24 @@ const RoutesComponent = () => {
                 </ProtectedRoute>
               }
             />
+            
+            <Route
+              path="/admin-orders"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "superadmin"]}>
+                  <AdminOrders />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/admin-payments"
+              element={
+                <ProtectedRoute allowedRoles={["admin", "superadmin"]}>
+                  <AdminPayments />
+                </ProtectedRoute>
+              }
+            />
 
             {/* ===== SHARED PROTECTED ROUTES ===== */}
             <Route
@@ -236,6 +337,9 @@ const RoutesComponent = () => {
             <Route path="/monitoring" element={<Navigate to="/cctv/dashboard" replace />} />
             <Route path="/cameras" element={<Navigate to="/cctv/dashboard" replace />} />
             <Route path="/security" element={<Navigate to="/cctv/dashboard" replace />} />
+            <Route path="/payments" element={<Navigate to="/checkout/payment" replace />} />
+            <Route path="/cart" element={<Navigate to="/checkout" replace />} />
+            <Route path="/order-history" element={<Navigate to="/customer/orders" replace />} />
 
             {/* ===== 404 - NOT FOUND ===== */}
             <Route path="*" element={<NotFound />} />

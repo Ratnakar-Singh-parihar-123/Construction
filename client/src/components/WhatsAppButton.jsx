@@ -41,17 +41,17 @@ const WhatsAppButton = () => {
   };
 
   const handleWhatsAppClick = () => {
-    const phone = '919876543210'; // Replace with your number
+    const phone = '919399741051'; // Replace with your number
     const message = getWhatsAppMessage();
     window.open(`https://wa.me/${phone}?text=${message}`);
   };
 
   const handleCallClick = () => {
-    window.open('tel:+919399741051', '_self');
+    window.open('tel:+919399741051', );
   };
 
   const handleEmailClick = () => {
-    window.open('mailto:support@construcchub.com?subject=Inquiry%20from%20Website', '_blank');
+    window.open('mailto:rsconstruction@gmail.com?subject=Inquiry%20from%20Website', );
   };
 
   if (!isVisible) return null;
